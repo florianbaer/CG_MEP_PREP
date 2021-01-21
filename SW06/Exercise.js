@@ -22,6 +22,7 @@ var ctx = {
 // we keep all the parameters for drawing a specific object together
 var cubes = {
     wireFrameCube: -1,
+    solidCube: -1,
 };
 
 var canvas;
@@ -82,7 +83,8 @@ function setUpAttributesAndUniforms(){
 function setUpBuffers(){
     "use strict";
 
-    cubes.wireFrameCube = WireFrameCube(gl, [1.0, 1.0, 1.0, 0.5]);
+    cubes.wireFrameCube = Cube(gl, [1.0, 1.0, 1.0, 0.5]);
+    cubes.solidCube = SolidCube(gl, [1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5]);
 
     let projMat = mat4.create();
     mat4.perspective(
