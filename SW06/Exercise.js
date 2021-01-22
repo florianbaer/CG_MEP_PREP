@@ -13,10 +13,21 @@ var gl;
 // we keep all local parameters for the program in a single object
 var ctx = {
     shaderProgram: -1, //wird unten wieder überschrieben
+
     aVertexPositionId: -1,
     aVertexColorId: -1,
-    uProjMatId: -1,
-    uModelMatId: -1,
+    aNormalVertexId:-1,
+
+    uProjectionMatId: -1,
+    uNormalMatrixId: -1,
+
+    uEnableLightingId: -1,
+    uEnableTextureId:-1,
+    aVertexTextureCoordId: -1,
+
+    uLightPositionId: -1,
+    uLightColorId: -1,
+    uModelMatrixId: -1,
 };
 
 // we keep all the parameters for drawing a specific object together
@@ -35,9 +46,13 @@ function startup() {
     canvas = document.getElementById("myCanvas");
     gl = createGLContext(canvas);
     initGL();
+    loadTexture();
     draw();
 }
 
+var lennaTex = {
+    texture: {},
+};
 /**
  * InitGL should contain the functionality that needs to be executed only once
  */
@@ -63,28 +78,65 @@ function initGL() {
     // add more necessary commands here
 }
 
+function loadTexture() {
+    var image = new Image();
+    lennaTex.texture = gl.createTexture();
+    image.onload = function() {
+        gl.bindTexture(gl.TEXTURE_2D, lennaTex.texture);
+
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        //gl.generateMipmap(gl.TEXTURE_2D);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        draw();
+    };
+    image.src = "lena512.png";
+}
+
 /**
  * Setup all the attribute and uniform variables
  */
-function setUpAttributesAndUniforms(){
+function setUpAttributesAndUniforms() {
     "use strict";
     // finds the index of the variable in the program || überschreibt ctx.aVertexPositionId
     ctx.aVertexPositionId = gl.getAttribLocation(ctx.shaderProgram, "aVertexPosition");
     ctx.aVertexColorId = gl.getAttribLocation(ctx.shaderProgram, "aVertexColor");
+    ctx.aNormalVertexId = gl.getAttribLocation(ctx.shaderProgram, "aVertexNormal");
+    ctx.aVertexTextureCoordId = gl.getAttribLocation(ctx.shaderProgram, "aVertexTextureCoord");
 
-    ctx.uModelMatId = gl.getUniformLocation(ctx.shaderProgram, "uModelMat");
-    ctx.uProjMatId = gl.getUniformLocation(ctx.shaderProgram, "uProjMat");
-    ctx.uModelViewMatId = gl.getUniformLocation(ctx.shaderProgram, "uModelViewMat");
+    ctx.uProjectionMatrixId = gl.getUniformLocation(ctx.shaderProgram, "uProjectionMatrix");
+    ctx.uModelViewMatrixId = gl.getUniformLocation(ctx.shaderProgram, "uModelViewMatrix");
+    ctx.uModelMatrixId = gl.getUniformLocation(ctx.shaderProgram, "uModelMatrix");
+    ctx.uNormalMatrixId = gl.getUniformLocation(ctx.shaderProgram, "uNormalMatrix");
+    ctx.uLightColorId = gl.getUniformLocation(ctx.shaderProgram, "uLightColor");
+    ctx.uLightPositionId = gl.getUniformLocation(ctx.shaderProgram, "uLightPosition");
+    ctx.uEnableLightingId = gl.getUniformLocation(ctx.shaderProgram, "uEnableLighting");
+    ctx.uEnableTextureId = gl.getUniformLocation(ctx.shaderProgram, "uEnableTexture");
+    ctx.uSamplerId = gl.getUniformLocation(ctx.shaderProgram, "uSampler");
 }
 
 /**
  * Setup the buffers to use. If more objects are needed this should be split in a file per object.
  */
-function setUpBuffers(){
+function setUpBuffers() {
     "use strict";
 
-    cubes.wireFrameCube = Cube(gl, [1.0, 1.0, 1.0, 0.5]);
-    cubes.solidCube = SolidCube(gl, [1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5],[1.0, 1.0, 1.0, 0.5]);
+    //cubes.wireFrameCube = Cube(gl, [1.0, 1.0, 1.0, 0.5]);
+    cubes.solidCube = SolidCube(gl, [1,0,0], [1,0.2,0.2],[0.5,0.5,1],[0,0.5,0],[1,1,0.5],[255,0,0]);
+    cubes.sphere = SolidSphere(gl, 200,100, [255,0,0,255])
+}
+
+/**
+ * Draw the scene.
+ */
+function draw() {
+    "use strict";
+    console.log("Drawing");
 
     let projMat = mat4.create();
     mat4.perspective(
@@ -94,38 +146,66 @@ function setUpBuffers(){
         0.1, // near
         1000, // far
     );
-    let uModelViewMat = mat4.create();
+    let viewMatrix = mat4.create();
     mat4.lookAt(
-        uModelViewMat,
-        [0, -5, 0], // eye
-        [0, 0, 0], // fovy / center
+        viewMatrix,
+        [5, 5, 2], // eye
+        [0, 0, -1], // fovy / center
         [0, 0, 1], // up
     );
+    let angle;
+
+    let normalMatrix = mat3.create();
+
+    mat3.normalFromMat4(normalMatrix, viewMatrix);
+    gl.uniformMatrix3fv(ctx.uNormalMatrixId, false, normalMatrix);
+
+    gl.uniform1i(ctx.uEnableLightingId, true);
+    gl.uniform1i(ctx.uEnableTextureId, true);
+    gl.uniform1i(ctx.uSamplerId, 0);
+
+    var loop = function () {
+        mat3.normalFromMat4(normalMatrix, viewMatrix);
+        gl.uniformMatrix3fv(ctx.uNormalMatrixId, false, normalMatrix);
+
+        gl.uniform3fv(ctx.uLightPositionId, [0, 0, 0]);
+        gl.uniform3fv(ctx.uLightColorId, [0, 0, 1]);
+
+        gl.uniform1i(ctx.uEnableLightingId, true);
+        gl.uniform1i(ctx.uEnableTextureId, true);
+        gl.uniform1i(ctx.uSamplerId, 0);
+
+        angle = performance.now() / 1000 / 6 * 2 * Math.PI;
+        gl.clearColor(0.8, 0.8, 0.8, 1);
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT); // reset
 
 
-    // set matrices for vertex shader
-    gl.uniformMatrix4fv(ctx.uProjMatId, false, projMat);
-    gl.uniformMatrix4fv(ctx.uModelViewMatId, false, uModelViewMat);
-}
-/**
- * Draw the scene.
- */
-function draw() {
-    "use strict";
-    console.log("Drawing");
+        gl.uniform3fv(ctx.uLightPositionId, [0, 0, 0]);
 
-    var worldMat = new mat4.create();
+        // set matrices for vertex shader
+        gl.uniformMatrix4fv(ctx.uModelViewMatrixId, false, viewMatrix);
+        gl.uniformMatrix4fv(ctx.uProjectionMatrixId, false, projMat);
 
 
-    var angle;
-    var loop = function() {
 
+        gl.bindTexture(gl.TEXTURE_2D, lennaTex.texture);
+        gl.activeTexture(gl.TEXTURE0);
 
-        gl.uniformMatrix4fv(ctx.uModelMatId, false, worldMat);
+        // draw sphere
+        let modelMatrix = mat4.create()
+        let viewMatrixWorld = mat4.create()
+        mat4.translate(modelMatrix,modelMatrix, [3, 0, 0]);
+        mat4.rotate(modelMatrix,modelMatrix, angle, [0,0,1]);
+        gl.uniformMatrix4fv(ctx.uModelMatrixId, false, modelMatrix);
 
-        gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
+        mat4.multiply(viewMatrixWorld, viewMatrix, modelMatrix);
+        mat3.normalFromMat4(normalMatrix, viewMatrixWorld);
+        gl.uniformMatrix3fv(ctx.uNormalMatrixId,false,normalMatrix);
+        cubes.solidCube.draw(gl, ctx.aVertexPositionId, ctx.aVertexColorId, ctx.aVertexTextureCoordId, ctx.aNormalVertexId);
+        //cubes.sphere.draw(gl, ctx.aVertexPositionId, ctx.aVertexColorId, ctx.aNormalVertexId);
 
-        cubes.wireFrameCube.draw(gl, ctx.aVertexPositionId, ctx.aVertexColorId);
 
         requestAnimationFrame(loop);
     }

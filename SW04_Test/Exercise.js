@@ -15,7 +15,7 @@ var ctx = {
     shaderProgram: -1, //wird unten wieder überschrieben
     aVertexPositionId: -1,
     aVertexColorId: -1,
-    uProjMatId: -1,
+    uProjectionMatId: -1,
     uModelMatId: -1,
     uViewMatId: -1,
 };
@@ -72,9 +72,10 @@ function setUpAttributesAndUniforms(){
     ctx.aVertexPositionId = gl.getAttribLocation(ctx.shaderProgram, "aVertexPosition");
     ctx.aVertexColorId = gl.getAttribLocation(ctx.shaderProgram, "aVertexColor");
 
-    ctx.uModelMatId = gl.getUniformLocation(ctx.shaderProgram, "uModelMat");
-    ctx.uProjMatId = gl.getUniformLocation(ctx.shaderProgram, "uProjMat");
+    ctx.uProjectionMatId = gl.getUniformLocation(ctx.shaderProgram, "uProjectionMat");
     ctx.uViewMatId = gl.getUniformLocation(ctx.shaderProgram, "uViewMat");
+
+    ctx.uModelMatId = gl.getUniformLocation(ctx.shaderProgram, "uModelMat");
 }
 
 /**
@@ -93,33 +94,39 @@ function setUpBuffers(){
         0.1, // near
         1000, // far
     );
-    let uModelViewMat = mat4.create();
+    let viewMat = mat4.create();
     mat4.lookAt(
-        uModelViewMat,
-        [0, -5, 0], // eye
+        viewMat,
+        [0, 5, 0], // eye
         [0, 0, 0], // fovy / center
         [0, 0, 1], // up
     );
 
-
-    // set matrices for vertex shader
-    gl.uniformMatrix4fv(ctx.uProjMatId, false, projMat);
-    gl.uniformMatrix4fv(ctx.uModelViewMatId, false, view);
+    gl.uniformMatrix4fv(ctx.uProjectionMatId, false, projMat)
+    gl.uniformMatrix4fv(ctx.uViewMatId, false, viewMat)
 }
+
+function animate() {
+    let angle = performance.now() / 1000 / 6 * 2 * Math.PI;
+    console.log(performance.now())
+    var worldMat = mat4.create();
+    let zrot = mat4.create()
+    mat4.fromRotation(zrot, angle, [0,0,1])
+    mat4.rotate(zrot, zrot, angle, [1,0,0])
+    mat4.multiply(worldMat, zrot, worldMat);
+    gl.uniformMatrix4fv(ctx.uModelMatId, false, worldMat);
+    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
+    cubes.wireFrameCube.draw(gl, ctx.aVertexPositionId, ctx.aVertexColorId);
+    console.log("done");
+    window.requestAnimationFrame(animate)
+}
+
 /**
  * Draw the scene.
  */
 function draw() {
     "use strict";
-    console.log("Drawing");
 
-    var worldMat = mat4.create();
+    window.requestAnimationFrame(animate)
 
-    gl.uniformMatrix4fv(ctx.uModelMatId, false, worldMat);
-
-    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
-
-    cubes.wireFrameCube.draw(gl, ctx.aVertexPositionId, ctx.aVertexColorId);
-
-    console.log("done");
 }

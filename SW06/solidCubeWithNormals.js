@@ -99,7 +99,8 @@ function SolidCube(gl, backColor, frontColor, rightColor, leftColor, topColor, b
 
     function defineTextureCoord(gl) {
         var textureCoords = [
-            0.0,  0.0,              // back
+            // back
+            0.0,  0.0,
             1.0,  0.0,
             1.0,  1.0,
             0.0,  1.0,
@@ -183,12 +184,10 @@ function SolidCube(gl, backColor, frontColor, rightColor, leftColor, topColor, b
             gl.vertexAttribPointer(aVertexTextureCoordId, 2, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(aVertexTextureCoordId);
 
-
             // normal
             gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferNormals);
             gl.vertexAttribPointer(aVertexNormalId, 3, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(aVertexNormalId);
-
 
             // bind the element array
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferSides);
